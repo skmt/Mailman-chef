@@ -1,0 +1,143 @@
+#!/bin/sh
+#
+# [[This is a draft.]]
+#
+# Backup Mailman's configuration and list
+#
+# Description
+#    Backup all of mailman's configurations, including its initial settings, 
+#    members and owners, except passwords.
+#
+# Backup Directories and Files
+#    All of them are located at the followings;
+#    - /var/lib/mailman/backup/
+#                            /${list}/
+#                            /${list}/${list}          : list meber(s)
+#                            /${list}/${list}.owner    : list owner(s)
+#                            /${list}/${list}.pck      : list setting
+# 
+# How To Backup
+#   Just run this script. But in case of no options, backuping all files and
+#   git-pushing them to Git server.
+#   If you would not upload files to git repositories, run this script with
+#   '-n' option.
+#
+
+# Variables
+
+SCRIPT="`basename ${0}`"
+opt_a=1
+opt_n=0
+
+BINPATH=/usr/lib/mailman/bin
+BKUPPATH=/var/lib/mailman/backup
+
+GITSERVER=<%= node['mailman']['git_server'] %>
+GITREPOSITORY=:<%= node['mailman']['git_repository'] %>
+GIT_WRAPPER=/root/.ssh/ssh_wrapper.sh
+GIT_SSH=${GIT_WRAPPER}
+
+
+# Functions
+
+print_usage () {
+	/bin/echo "usage: $0 [-h] [-n] [-a] [listname]" >&2
+	/bin/echo "options:" >&2
+	/bin/echo " -h: print usage" >&2
+	/bin/echo " -a: backup all lists" >&2
+	/bin/echo " -n: no git-push" >&2
+	exit 1;
+}
+
+parse_option () {
+	_opt=`/usr/bin/getopt -o hn -- "${@}"`
+
+	eval set -- "${_opt}"
+
+	for i; do
+		case ${i} in
+			-h) print_usage; exit 1;;
+			-a) opt_a=1; shift;;
+			-n) opt_n=1; shift;;
+			--) shift; break;;
+		esac
+	done
+
+	if [ ${opt_a} = 0 -a "x${1}" = "x" ]; then
+		print_usage
+	fi
+}
+
+function create_dir () {
+	if [ ! -d ${BKUPPATH} ]; then
+		mkdir -p ${BKUPPATH}
+	fi
+}
+
+function exec_backup () {
+	_ml=${1}
+	if [ "x${_ml}" = "x" ]; then
+		return
+	fi
+
+	mkdir -p ${BKUPPATH}/${_ml}
+	${BINPATH}/config_list -o ${BKUPPATH}/${_ml}/${_ml}.pck ${_ml}
+	${BINPATH}/list_owners ${_ml} > ${BKUPPATH}/${_ml}/${_ml}.owner
+	${BINPATH}/list_members -o ${BKUPPATH}/${_ml}/${_ml} ${_ml}
+}
+
+function all_exec_backup () {
+	${BINPATH}/list_lists -b | \
+	while read ml
+	do
+		exec_backup ${ml}
+	done
+}
+
+function logging () {
+	logger "${1}"
+}
+
+
+function git_init () {
+	if [ ! -d ${BKUPPATH}/.git ]; then
+		git init
+		git add .
+		git commit -m "first commit - `date`"
+		git remote add origin git@${GITSERVER}/${GITREPOSITORY}
+		git -u push origin master
+	fi
+}
+
+function git_push () {
+	if [ ! -d ${BKUPPATH}/.git ]; then
+		git_init
+	fi
+	cd ${BKUPPATH}
+	git add .
+	git commit -m "daily commit - `date`"
+	git push
+}
+
+########################################################################
+# main section
+########################################################################
+
+logging "start ${SCRIPT}"
+
+parse_option $*
+
+create_dir
+if [ ${opt_a} -eq 1 ]; then
+	all_exec_backup
+else
+	exec_backup ${1}
+fi
+
+if [ ${opt_n} -eq 0 ]; then
+	git_push
+fi
+
+logging "finish ${SCRIPT}"
+
+# end of script

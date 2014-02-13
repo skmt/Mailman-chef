@@ -1,0 +1,15 @@
+// This is a sample json.
+
+{
+        "mailman": {
+				"admin"          : "tanai_tsuyoshi@cyberagent.co.jp",
+				"password"       : "1qazxsw2",
+				"git_server"     : "git@gitlab.sys.nbu.ca.local",
+				"git_repository" : "tanai_tsuyoshi/mailman.git"
+		},
+		"run_list" : [
+			"role[mailman]"
+		]
+}
+
+// end of json

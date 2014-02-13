@@ -1,0 +1,21 @@
+// Role: mailman server
+
+{
+	"name" : "mailman",
+	"default_attributes" : {
+		"mailman": {
+			"admin"          : "root",
+			"password"       : "password",
+			"git_server"     : "git@ghe.amb.ca.local",
+			"git_repository" : "USER/REPO_NAME.git"
+		}
+	},
+	"override_attributes" : {},
+	"json_class" : "Chef::Role",
+	"description" : "",
+	"chef_type" : "role",
+	"run_list" : [
+		"recipe[mailman]",
+		"recipe[mailman::add_list]"
+	]
+}
